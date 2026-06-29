@@ -1,0 +1,40 @@
+# Optical Spoolman — Docker Compose
+#
+#   docker compose up                          # app only (uses your existing Spoolman)
+#   docker compose --profile with-spoolman up  # app + a bundled Spoolman instance
+#
+# Configuration is read from a .env file in this directory (see .env.example).
+# At minimum, ANTHROPIC_API_KEY must be set.
+
+services:
+  app:
+    image: ghcr.io/bryansmee/optical-spoolman:latest
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required (set it in .env)}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
+      # Defaults target the bundled `spoolman` service below. To use your own
+      # Spoolman instead, set SPOOLMAN_URL in .env (e.g.
+      # http://host.docker.internal:7912 to reach one on the Docker host).
+      SPOOLMAN_URL: ${SPOOLMAN_URL:-http://spoolman:8000}
+      SPOOLMAN_PUBLIC_URL: ${SPOOLMAN_PUBLIC_URL:-http://localhost:7912}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Optional bundled Spoolman. Enable with: --profile with-spoolman
+  spoolman:
+    image: ghcr.io/donkie/spoolman:latest
+    profiles: ["with-spoolman"]
+    ports:
+      - "7912:8000"
+    volumes:
+      - spoolman_data:/home/app/.local/share/spoolman
+    environment:
+      TZ: ${TZ:-UTC}
+    restart: unless-stopped
+
+volumes:
+  spoolman_data:

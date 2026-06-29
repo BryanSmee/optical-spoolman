@@ -11,7 +11,15 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-opus-4-8"
 
     # Spoolman
+    # URL the backend uses to reach Spoolman (may be an internal Docker host).
     spoolman_url: str = "http://localhost:7912"
+    # Browser-facing Spoolman URL, used only to build clickable "open spool"
+    # links. Falls back to spoolman_url when empty.
+    spoolman_public_url: str = ""
+
+    @property
+    def spoolman_link_base(self) -> str:
+        return (self.spoolman_public_url or self.spoolman_url).rstrip("/")
 
 
 settings = Settings()

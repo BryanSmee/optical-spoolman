@@ -76,9 +76,12 @@ def apply_defaults(extracted: ExtractedFilament) -> dict:
 class SpoolmanClient:
     """Thin async client for the Spoolman REST API (/api/v1)."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, public_url: Optional[str] = None):
         self.base = base_url.rstrip("/")
         self.api = f"{self.base}/api/v1"
+        # Used only for user-clickable links; the backend may reach Spoolman at
+        # an internal address that the browser cannot.
+        self.public = (public_url or base_url).rstrip("/")
 
     async def ping(self) -> bool:
         try:
@@ -158,5 +161,5 @@ class SpoolmanClient:
                 "vendor_id": vendor_id,
                 "filament_id": filament_obj["id"],
                 "spool_id": spool_obj["id"],
-                "spool_url": f"{self.base}/spool/show/{spool_obj['id']}",
+                "spool_url": f"{self.public}/spool/show/{spool_obj['id']}",
             }

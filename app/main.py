@@ -62,7 +62,7 @@ def analyze(file: UploadFile = File(...)) -> dict:
 
 @app.post("/api/create")
 async def create(req: CreateRequest) -> dict:
-    client = SpoolmanClient(settings.spoolman_url)
+    client = SpoolmanClient(settings.spoolman_url, settings.spoolman_link_base)
     try:
         return await client.create_all(req)
     except httpx.HTTPStatusError as exc:

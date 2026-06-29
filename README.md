@@ -47,7 +47,7 @@ cp .env.example .env
 | `ANTHROPIC_MODEL`   | `claude-opus-4-8`         | Vision model used for extraction.      |
 | `SPOOLMAN_URL`      | `http://localhost:7912`   | Base URL of your Spoolman instance.    |
 
-## Run
+## Run (local Python)
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -55,6 +55,44 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 Open <http://localhost:8000>. On a phone, the **Take / choose photo** button
 opens the camera directly.
+
+## Run (Docker)
+
+A `Dockerfile` and `docker-compose.yml` are included. Create a `.env` first
+(`cp .env.example .env`, set `ANTHROPIC_API_KEY`).
+
+**Against your existing Spoolman** — set `SPOOLMAN_URL` in `.env` to a reachable
+address (use `http://host.docker.internal:7912` for a Spoolman running on the
+Docker host), then:
+
+```bash
+docker compose up --build
+```
+
+**With a bundled Spoolman** (starts Spoolman alongside the app):
+
+```bash
+docker compose --profile with-spoolman up --build
+```
+
+In bundled mode the backend reaches Spoolman at `http://spoolman:8000` (the
+default), while clickable spool links use `SPOOLMAN_PUBLIC_URL`
+(`http://localhost:7912` by default) so they open in your browser. Spoolman data
+persists in the `spoolman_data` volume.
+
+The app listens on <http://localhost:8000>.
+
+### Pull the prebuilt image
+
+CI publishes the image to GitHub Container Registry on every push to `main` and
+on version tags (`v*`):
+
+```bash
+docker pull ghcr.io/bryansmee/optical-spoolman:latest
+```
+
+`docker-compose.yml` already references this image, so `docker compose pull`
+fetches it instead of building locally.
 
 > Camera access in browsers requires a secure context. `localhost` is treated as
 > secure; to use it from another device, serve over HTTPS (e.g. behind a reverse
