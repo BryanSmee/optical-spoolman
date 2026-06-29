@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Optical Spoolman</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --panel-2: #232732;
+    --text: #e6e8eb;
+    --muted: #9aa3b2;
+    --accent: #4f9dff;
+    --accent-2: #2ecc71;
+    --border: #2c313c;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.45;
+  }
+  header {
+    padding: 20px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .capture-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  label.filebtn, button {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+  }
+  label.filebtn { background: var(--panel-2); border: 1px solid var(--border); }
+  button.primary { background: var(--accent); }
+  button.success { background: var(--accent-2); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #preview {
+    display: none;
+    width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    margin-top: 14px;
+    border-radius: 10px;
+    background: #000;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 0.8rem; color: var(--muted); }
+  input, textarea {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.95rem;
+    width: 100%;
+  }
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  input[type="color"] { padding: 2px; width: 46px; height: 42px; flex: 0 0 auto; }
+  .hidden { display: none; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { padding: 12px; border-radius: 8px; margin-bottom: 14px; }
+  .msg.error { background: rgba(255,107,107,.12); border: 1px solid var(--danger); color: #ffc9c9; }
+  .msg.ok { background: rgba(46,204,113,.12); border: 1px solid var(--accent-2); color: #b6f3cf; }
+  .msg.ok a { color: #d4ffe6; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .actions { margin-top: 16px; display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📷 Optical Spoolman</h1>
+  <p>Snap a filament package → review → add to Spoolman</p>
+</header>
+
+<main>
+  <div id="message"></div>
+
+  <div class="panel">
+    <div class="capture-row">
+      <label class="filebtn" for="fileInput">Take / choose photo</label>
+      <input id="fileInput" type="file" accept="image/*" capture="environment" class="hidden" />
+      <button id="analyzeBtn" class="primary" disabled>Analyze</button>
+    </div>
+    <img id="preview" alt="preview" />
+  </div>
+
+  <form id="reviewForm" class="panel hidden">
+    <h2>Review &amp; edit</h2>
+    <div class="grid">
+      <div class="field"><label>Brand / vendor</label><input name="brand" /></div>
+      <div class="field"><label>Material</label><input name="material" /></div>
+      <div class="field full"><label>Color name</label><input name="color_name" /></div>
+      <div class="field full">
+        <label>Color</label>
+        <div class="color-row">
+          <input type="color" id="colorPicker" value="#888888" />
+          <input name="color_hex" id="colorHex" placeholder="RRGGBB" />
+        </div>
+      </div>
+      <div class="field"><label>Diameter (mm)</label><input name="diameter_mm" type="number" step="0.01" /></div>
+      <div class="field"><label>Density (g/cm³)</label><input name="density_g_cm3" type="number" step="0.01" /></div>
+      <div class="field"><label>Net weight (g)</label><input name="net_weight_g" type="number" step="1" /></div>
+      <div class="field"><label>Spool weight (g)</label><input name="spool_weight_g" type="number" step="1" /></div>
+      <div class="field"><label>Extruder temp (°C)</label><input name="extruder_temp_c" type="number" step="1" /></div>
+      <div class="field"><label>Bed temp (°C)</label><input name="bed_temp_c" type="number" step="1" /></div>
+      <div class="field"><label>Article / SKU</label><input name="article_number" /></div>
+      <div class="field"><label>Price</label><input name="price" type="number" step="0.01" /></div>
+      <div class="field"><label>Lot number</label><input name="lot_nr" /></div>
+      <div class="field full"><label>Comment</label><textarea name="comment" rows="2"></textarea></div>
+    </div>
+    <div class="actions">
+      <button type="submit" class="success" id="createBtn">Add to Spoolman</button>
+    </div>
+  </form>
+</main>
+
+<script>
+  const fileInput = document.getElementById("fileInput");
+  const preview = document.getElementById("preview");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const reviewForm = document.getElementById("reviewForm");
+  const createBtn = document.getElementById("createBtn");
+  const messageEl = document.getElementById("message");
+  const colorPicker = document.getElementById("colorPicker");
+  const colorHex = document.getElementById("colorHex");
+
+  let selectedFile = null;
+
+  function showMessage(kind, html) {
+    messageEl.innerHTML = `<div class="msg ${kind}">${html}</div>`;
+  }
+  function clearMessage() { messageEl.innerHTML = ""; }
+
+  fileInput.addEventListener("change", () => {
+    selectedFile = fileInput.files[0] || null;
+    if (selectedFile) {
+      preview.src = URL.createObjectURL(selectedFile);
+      preview.style.display = "block";
+      analyzeBtn.disabled = false;
+    }
+  });
+
+  // Keep the color picker and hex text in sync.
+  colorPicker.addEventListener("input", () => {
+    colorHex.value = colorPicker.value.replace("#", "").toUpperCase();
+  });
+  colorHex.addEventListener("input", () => {
+    const v = colorHex.value.trim().replace("#", "");
+    if (/^[0-9a-fA-F]{6}$/.test(v)) colorPicker.value = "#" + v;
+  });
+
+  function setField(name, value) {
+    const el = reviewForm.elements[name];
+    if (el && value !== null && value !== undefined) el.value = value;
+  }
+
+  function fillForm(data) {
+    reviewForm.reset();
+    Object.entries(data).forEach(([k, v]) => setField(k, v));
+    if (data.color_hex && /^[0-9a-fA-F]{6}$/.test(data.color_hex)) {
+      colorPicker.value = "#" + data.color_hex;
+    }
+    reviewForm.classList.remove("hidden");
+  }
+
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFile) return;
+    clearMessage();
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing…';
+    try {
+      const body = new FormData();
+      body.append("file", selectedFile);
+      const resp = await fetch("/api/analyze", { method: "POST", body });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || "Analysis failed");
+      fillForm(data);
+      showMessage("ok", "Here's what I read. Check the fields, then add it.");
+    } catch (err) {
+      showMessage("error", err.message);
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = "Analyze";
+    }
+  });
+
+  function collectForm() {
+    const fd = new FormData(reviewForm);
+    const numeric = new Set([
+      "diameter_mm", "density_g_cm3", "net_weight_g", "spool_weight_g",
+      "extruder_temp_c", "bed_temp_c", "price",
+    ]);
+    const out = {};
+    for (const [k, raw] of fd.entries()) {
+      const v = raw.trim();
+      if (v === "") { out[k] = null; continue; }
+      out[k] = numeric.has(k) ? Number(v) : v;
+    }
+    return out;
+  }
+
+  reviewForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearMessage();
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<span class="spinner"></span> Adding…';
+    try {
+      const resp = await fetch("/api/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(collectForm()),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || "Create failed");
+      showMessage(
+        "ok",
+        `Added! Filament #${data.filament_id}, spool #${data.spool_id}. ` +
+          `<a href="${data.spool_url}" target="_blank" rel="noopener">Open in Spoolman →</a>`
+      );
+      reviewForm.classList.add("hidden");
+      preview.style.display = "none";
+      analyzeBtn.disabled = true;
+      selectedFile = null;
+      fileInput.value = "";
+    } catch (err) {
+      showMessage("error", err.message);
+    } finally {
+      createBtn.disabled = false;
+      createBtn.textContent = "Add to Spoolman";
+    }
+  });
+</script>
+</body>
+</html>
