@@ -9,7 +9,7 @@ from .models import ExtractedFilament
 _FIELDS = (
     "brand, material, color_name, color_hex, diameter_mm, net_weight_g, "
     "spool_weight_g, density_g_cm3, extruder_temp_c, bed_temp_c, "
-    "article_number, notes"
+    "article_number, lot_nr, notes"
 )
 
 SYSTEM_PROMPT = f"""\
@@ -29,8 +29,7 @@ Rules:
 - `diameter_mm` is almost always 1.75 or 2.85.
 - `net_weight_g` is the filament weight in grams (e.g. 1000 for "1 kg"), not the
   gross weight.
-- Temperatures are in Celsius; if a range is printed, use a representative
-  midpoint.
+- Temperatures are in Celsius; if a range is printed, use the highest value. If only a single temperature is printed, use that.
 - All numeric fields must be plain numbers with no units.
 """
 

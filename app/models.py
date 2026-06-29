@@ -45,6 +45,9 @@ class ExtractedFilament(BaseModel):
     article_number: Optional[str] = Field(
         None, description="SKU / article / product number if visible."
     )
+    lot_nr: Optional[str] = Field(
+        None, description="Lot number if printed on the package."
+    )
     notes: Optional[str] = Field(
         None, description="Anything else useful printed on the package."
     )
