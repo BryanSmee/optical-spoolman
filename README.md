@@ -109,21 +109,23 @@ filament. The tag is an NDEF `application/json` record:
 {
   "protocol": "openspool",
   "version": "1.0",
-  "type": "PLA+",
-  "color_hex": "F5F5F5",
-  "brand": "eSUN",
-  "min_temp": "205",
-  "max_temp": "225",
-  "spool_id": 42,
-  "variant": "HS",
-  "bed_min_temp": "50",
-  "bed_max_temp": "60"
+  "type": "PLA",
+  "color_hex": "9C6B32",
+  "brand": "FlashForge",
+  "min_temp": "220",
+  "max_temp": "240",
+  "bed_min_temp": "25",
+  "bed_max_temp": "60",
+  "spool_id": "29",
+  "subtype": "HS"
 }
 ```
 
-- `spool_id` links the tag back to the Spoolman spool (SpoolPainter/OpenSpoolMan
-  convention). `variant` and the `bed_*` fields are additive — OpenSpool readers
-  ignore keys they don't recognise.
+- Field names, ordering and string typing match real SpoolPainter tag dumps:
+  every temperature **and** `spool_id` is a string, and the product line is
+  written as `subtype`.
+- `spool_id` links the tag back to the Spoolman spool. `subtype` and the `bed_*`
+  fields are additive — OpenSpool readers ignore keys they don't recognise.
 - Writing uses the browser **Web NFC API**, which works only on **Chrome/Edge on
   Android** and only in a **secure context (HTTPS)**. Serve the app over your
   Tailscale HTTPS URL (or another cert) and open it in Android Chrome.

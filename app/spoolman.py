@@ -147,7 +147,9 @@ def build_openspool(req: CreateRequest, spool_id: int) -> dict:
     Spoolman spool. Extra keys (variant, bed temps) are additive; OpenSpool
     readers ignore fields they don't recognise.
     """
-    # Core OpenSpool fields (temperatures are strings, per the OpenSpool spec).
+    # Field names, ordering, and string typing match real SpoolPainter tag
+    # dumps: all temperatures AND spool_id are strings; the product line is
+    # written as `subtype`.
     payload = {
         "protocol": "openspool",
         "version": "1.0",
@@ -159,17 +161,13 @@ def build_openspool(req: CreateRequest, spool_id: int) -> dict:
         payload["min_temp"] = str(int(req.extruder_temp_min_c))
     if req.extruder_temp_max_c is not None:
         payload["max_temp"] = str(int(req.extruder_temp_max_c))
-
-    # Spoolman link (SpoolPainter / OpenSpoolMan extension).
-    payload["spool_id"] = spool_id
-
-    # Additional data.
-    if req.variant and req.variant.strip():
-        payload["variant"] = req.variant.strip()
     if req.bed_temp_min_c is not None:
         payload["bed_min_temp"] = str(int(req.bed_temp_min_c))
     if req.bed_temp_max_c is not None:
         payload["bed_max_temp"] = str(int(req.bed_temp_max_c))
+    payload["spool_id"] = str(spool_id)
+    if req.variant and req.variant.strip():
+        payload["subtype"] = req.variant.strip()
     return payload
 
 
