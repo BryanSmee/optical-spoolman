@@ -30,6 +30,49 @@ DENSITY_BY_MATERIAL = {
 DEFAULT_DENSITY = 1.24
 DEFAULT_DIAMETER = 1.75
 
+# Fallback nozzle temperature ranges (min, max) in Celsius, used to pre-fill the
+# review form (and the OpenSpool tag) when the package doesn't print them.
+EXTRUDER_TEMP_BY_MATERIAL = {
+    "PLA": (190, 220),
+    "PLA+": (200, 230),
+    "PLA-CF": (200, 230),
+    "PETG": (230, 250),
+    "PET": (230, 250),
+    "PETG-CF": (240, 260),
+    "ABS": (230, 260),
+    "ASA": (240, 260),
+    "TPU": (210, 230),
+    "TPE": (210, 230),
+    "PC": (260, 300),
+    "NYLON": (240, 270),
+    "PA": (240, 270),
+    "PA-CF": (250, 280),
+    "PVA": (190, 220),
+    "HIPS": (230, 245),
+    "PP": (220, 250),
+}
+
+# Fallback bed temperature ranges (min, max) in Celsius by material.
+BED_TEMP_BY_MATERIAL = {
+    "PLA": (50, 60),
+    "PLA+": (55, 65),
+    "PLA-CF": (55, 65),
+    "PETG": (70, 85),
+    "PET": (70, 85),
+    "PETG-CF": (70, 85),
+    "ABS": (90, 110),
+    "ASA": (90, 110),
+    "TPU": (40, 60),
+    "TPE": (40, 60),
+    "PC": (100, 120),
+    "NYLON": (70, 90),
+    "PA": (70, 90),
+    "PA-CF": (80, 100),
+    "PVA": (45, 60),
+    "HIPS": (90, 110),
+    "PP": (85, 100),
+}
+
 
 def clean_hex(value: Optional[str]) -> Optional[str]:
     """Normalize a color to a 6-digit hex string without '#', or None."""
@@ -47,30 +90,87 @@ def density_for_material(material: Optional[str]) -> Optional[float]:
     return DENSITY_BY_MATERIAL.get(material.strip().upper())
 
 
+def extruder_range_for_material(material: Optional[str]) -> tuple:
+    if not material:
+        return (None, None)
+    return EXTRUDER_TEMP_BY_MATERIAL.get(material.strip().upper(), (None, None))
+
+
+def bed_range_for_material(material: Optional[str]) -> tuple:
+    if not material:
+        return (None, None)
+    return BED_TEMP_BY_MATERIAL.get(material.strip().upper(), (None, None))
+
+
+def _midpoint(low, high):
+    values = [v for v in (low, high) if v is not None]
+    return round(sum(values) / len(values)) if values else None
+
+
 def apply_defaults(extracted: ExtractedFilament) -> dict:
-    """Fill in the fields Spoolman requires (density, diameter) so the review
-    form is pre-populated with sensible values the user can override."""
+    """Fill in the fields Spoolman requires (density, diameter) and the nozzle
+    temperature range (for the OpenSpool tag) so the review form is
+    pre-populated with sensible values the user can override."""
     density = (
         extracted.density_g_cm3
         or density_for_material(extracted.material)
         or DEFAULT_DENSITY
     )
+    ext_min, ext_max = extruder_range_for_material(extracted.material)
+    bed_min, bed_max = bed_range_for_material(extracted.material)
     return {
         "brand": extracted.brand,
         "material": extracted.material,
+        "variant": extracted.variant,
         "color_name": extracted.color_name,
         "color_hex": clean_hex(extracted.color_hex),
         "diameter_mm": extracted.diameter_mm or DEFAULT_DIAMETER,
         "net_weight_g": extracted.net_weight_g,
         "spool_weight_g": extracted.spool_weight_g,
         "density_g_cm3": density,
-        "extruder_temp_c": extracted.extruder_temp_c,
-        "bed_temp_c": extracted.bed_temp_c,
+        "extruder_temp_min_c": extracted.extruder_temp_min_c or ext_min,
+        "extruder_temp_max_c": extracted.extruder_temp_max_c or ext_max,
+        "bed_temp_min_c": extracted.bed_temp_min_c or bed_min,
+        "bed_temp_max_c": extracted.bed_temp_max_c or bed_max,
         "article_number": extracted.article_number,
         "price": None,
-        "lot_nr": None,
+        "lot_nr": extracted.lot_nr,
         "comment": extracted.notes,
     }
+
+
+def build_openspool(req: CreateRequest, spool_id: int) -> dict:
+    """Assemble the NDEF JSON payload written to the NFC tag.
+
+    Follows the OpenSpool format (an application/json record) and, like
+    SpoolPainter / OpenSpoolMan, adds a `spool_id` linking the tag to the
+    Spoolman spool. Extra keys (variant, bed temps) are additive; OpenSpool
+    readers ignore fields they don't recognise.
+    """
+    # Field names, ordering, and string typing match real SpoolPainter tag
+    # dumps: all temperatures AND spool_id are strings; the product line is
+    # written as `subtype`.
+    payload = {
+        "protocol": "openspool",
+        "version": "1.0",
+        "type": (req.material or "").strip(),
+        "color_hex": clean_hex(req.color_hex) or "FFFFFF",
+        "brand": (req.brand or "Generic").strip(),
+    }
+    if req.extruder_temp_min_c is not None:
+        payload["min_temp"] = str(int(req.extruder_temp_min_c))
+    if req.extruder_temp_max_c is not None:
+        payload["max_temp"] = str(int(req.extruder_temp_max_c))
+    if req.bed_temp_min_c is not None:
+        payload["bed_min_temp"] = str(int(req.bed_temp_min_c))
+    if req.bed_temp_max_c is not None:
+        payload["bed_max_temp"] = str(int(req.bed_temp_max_c))
+    payload["spool_id"] = str(spool_id)
+    if req.variant and req.variant.strip():
+        payload["subtype"] = req.variant.strip()
+    if req.lot_nr and req.lot_nr.strip():
+        payload["lot_nr"] = req.lot_nr.strip()
+    return payload
 
 
 class SpoolmanClient:
@@ -115,7 +215,8 @@ class SpoolmanClient:
                 "diameter": req.diameter_mm,
                 "density": req.density_g_cm3,
             }
-            name = req.color_name or req.material
+            base_name = req.color_name or req.material
+            name = " ".join(p for p in (base_name, req.variant) if p) or None
             if name:
                 filament["name"] = name
             if vendor_id is not None:
@@ -129,10 +230,13 @@ class SpoolmanClient:
             hex_value = clean_hex(req.color_hex)
             if hex_value:
                 filament["color_hex"] = hex_value
-            if req.extruder_temp_c is not None:
-                filament["settings_extruder_temp"] = req.extruder_temp_c
-            if req.bed_temp_c is not None:
-                filament["settings_bed_temp"] = req.bed_temp_c
+            # Spoolman stores single recommended temps; use the range midpoints.
+            extruder_temp = _midpoint(req.extruder_temp_min_c, req.extruder_temp_max_c)
+            if extruder_temp is not None:
+                filament["settings_extruder_temp"] = extruder_temp
+            bed_temp = _midpoint(req.bed_temp_min_c, req.bed_temp_max_c)
+            if bed_temp is not None:
+                filament["settings_bed_temp"] = bed_temp
             if req.article_number:
                 filament["article_number"] = req.article_number
             if req.price is not None:
@@ -162,4 +266,5 @@ class SpoolmanClient:
                 "filament_id": filament_obj["id"],
                 "spool_id": spool_obj["id"],
                 "spool_url": f"{self.public}/spool/show/{spool_obj['id']}",
+                "openspool": build_openspool(req, spool_obj["id"]),
             }

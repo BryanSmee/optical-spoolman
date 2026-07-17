@@ -16,6 +16,11 @@ class ExtractedFilament(BaseModel):
     material: Optional[str] = Field(
         None, description="Material type, e.g. 'PLA', 'PETG', 'ABS', 'ASA', 'TPU'."
     )
+    variant: Optional[str] = Field(
+        None,
+        description="Product line / sub-type printed on the package, e.g. 'HS', "
+        "'High Speed', 'Premium', 'Matte', 'Silk'. Null if none.",
+    )
     color_name: Optional[str] = Field(
         None, description="Printed color / variant name, e.g. 'Galaxy Black'."
     )
@@ -36,11 +41,17 @@ class ExtractedFilament(BaseModel):
     density_g_cm3: Optional[float] = Field(
         None, description="Material density in g/cm^3, only if printed on the package."
     )
-    extruder_temp_c: Optional[int] = Field(
-        None, description="Recommended nozzle/extruder temperature in Celsius."
+    extruder_temp_min_c: Optional[int] = Field(
+        None, description="Minimum recommended nozzle/extruder temperature (Celsius)."
     )
-    bed_temp_c: Optional[int] = Field(
-        None, description="Recommended bed temperature in Celsius."
+    extruder_temp_max_c: Optional[int] = Field(
+        None, description="Maximum recommended nozzle/extruder temperature (Celsius)."
+    )
+    bed_temp_min_c: Optional[int] = Field(
+        None, description="Minimum recommended bed temperature (Celsius)."
+    )
+    bed_temp_max_c: Optional[int] = Field(
+        None, description="Maximum recommended bed temperature (Celsius)."
     )
     article_number: Optional[str] = Field(
         None, description="SKU / article / product number if visible."
@@ -58,14 +69,17 @@ class CreateRequest(BaseModel):
 
     brand: Optional[str] = None
     material: Optional[str] = None
+    variant: Optional[str] = None
     color_name: Optional[str] = None
     color_hex: Optional[str] = None
     diameter_mm: float = 1.75
     net_weight_g: Optional[float] = None
     spool_weight_g: Optional[float] = None
     density_g_cm3: float = 1.24
-    extruder_temp_c: Optional[int] = None
-    bed_temp_c: Optional[int] = None
+    extruder_temp_min_c: Optional[int] = None
+    extruder_temp_max_c: Optional[int] = None
+    bed_temp_min_c: Optional[int] = None
+    bed_temp_max_c: Optional[int] = None
     article_number: Optional[str] = None
     price: Optional[float] = None
     lot_nr: Optional[str] = None
