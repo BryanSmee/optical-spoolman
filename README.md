@@ -117,15 +117,18 @@ filament. The tag is an NDEF `application/json` record:
   "bed_min_temp": "25",
   "bed_max_temp": "60",
   "spool_id": "29",
-  "subtype": "HS"
+  "subtype": "HS",
+  "lot_nr": "L2026-07"
 }
 ```
 
 - Field names, ordering and string typing match real SpoolPainter tag dumps:
   every temperature **and** `spool_id` is a string, and the product line is
   written as `subtype`.
-- `spool_id` links the tag back to the Spoolman spool. `subtype` and the `bed_*`
-  fields are additive — OpenSpool readers ignore keys they don't recognise.
+- `spool_id` links the tag back to the Spoolman spool. `subtype`, `lot_nr` and
+  the `bed_*` fields are additive — OpenSpool readers ignore keys they don't
+  recognise. `lot_nr` (written only when present) lets you match a spool back to
+  the order it came from.
 - Writing uses the browser **Web NFC API**, which works only on **Chrome/Edge on
   Android** and only in a **secure context (HTTPS)**. Serve the app over your
   Tailscale HTTPS URL (or another cert) and open it in Android Chrome.

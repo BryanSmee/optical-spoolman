@@ -168,6 +168,8 @@ def build_openspool(req: CreateRequest, spool_id: int) -> dict:
     payload["spool_id"] = str(spool_id)
     if req.variant and req.variant.strip():
         payload["subtype"] = req.variant.strip()
+    if req.lot_nr and req.lot_nr.strip():
+        payload["lot_nr"] = req.lot_nr.strip()
     return payload
 
 
