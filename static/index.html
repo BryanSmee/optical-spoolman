@@ -91,6 +91,12 @@
   .msg.ok a { color: #d4ffe6; }
   h2 { font-size: 1.05rem; margin: 0 0 12px; }
   .actions { margin-top: 16px; display: flex; gap: 10px; }
+  .payload {
+    margin-top: 12px; padding: 10px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 0.8rem; white-space: pre-wrap;
+    word-break: break-word; overflow-x: auto;
+  }
 </style>
 </head>
 <body>
@@ -116,6 +122,7 @@
     <div class="grid">
       <div class="field"><label>Brand / vendor</label><input name="brand" /></div>
       <div class="field"><label>Material</label><input name="material" /></div>
+      <div class="field full"><label>Product line / variant (e.g. HS, Premium)</label><input name="variant" /></div>
       <div class="field full"><label>Color name</label><input name="color_name" /></div>
       <div class="field full">
         <label>Color</label>
@@ -128,8 +135,10 @@
       <div class="field"><label>Density (g/cm³)</label><input name="density_g_cm3" type="number" step="0.01" /></div>
       <div class="field"><label>Net weight (g)</label><input name="net_weight_g" type="number" step="1" /></div>
       <div class="field"><label>Spool weight (g)</label><input name="spool_weight_g" type="number" step="1" /></div>
-      <div class="field"><label>Extruder temp (°C)</label><input name="extruder_temp_c" type="number" step="1" /></div>
-      <div class="field"><label>Bed temp (°C)</label><input name="bed_temp_c" type="number" step="1" /></div>
+      <div class="field"><label>Nozzle temp min (°C)</label><input name="extruder_temp_min_c" type="number" step="1" /></div>
+      <div class="field"><label>Nozzle temp max (°C)</label><input name="extruder_temp_max_c" type="number" step="1" /></div>
+      <div class="field"><label>Bed temp min (°C)</label><input name="bed_temp_min_c" type="number" step="1" /></div>
+      <div class="field"><label>Bed temp max (°C)</label><input name="bed_temp_max_c" type="number" step="1" /></div>
       <div class="field"><label>Article / SKU</label><input name="article_number" /></div>
       <div class="field"><label>Price</label><input name="price" type="number" step="0.01" /></div>
       <div class="field"><label>Lot number</label><input name="lot_nr" /></div>
@@ -139,6 +148,16 @@
       <button type="submit" class="success" id="createBtn">Add to Spoolman</button>
     </div>
   </form>
+
+  <div id="nfcPanel" class="panel hidden">
+    <h2>Write NFC tag (OpenSpool)</h2>
+    <p class="muted">Hold a blank NTAG213/215/216 tag to the back of the phone and tap the button.</p>
+    <div class="actions">
+      <button type="button" class="primary" id="writeNfcBtn">Write to NFC tag</button>
+    </div>
+    <p class="muted" id="nfcStatus"></p>
+    <pre id="nfcPayload" class="payload"></pre>
+  </div>
 </main>
 
 <script>
@@ -150,8 +169,14 @@
   const messageEl = document.getElementById("message");
   const colorPicker = document.getElementById("colorPicker");
   const colorHex = document.getElementById("colorHex");
+  const nfcPanel = document.getElementById("nfcPanel");
+  const writeNfcBtn = document.getElementById("writeNfcBtn");
+  const nfcStatus = document.getElementById("nfcStatus");
+  const nfcPayload = document.getElementById("nfcPayload");
 
   let selectedFile = null;
+  let lastOpenspool = null;
+  let nfcAttempt = 0;
 
   function showMessage(kind, html) {
     messageEl.innerHTML = `<div class="msg ${kind}">${html}</div>`;
@@ -187,6 +212,9 @@
     if (data.color_hex && /^[0-9a-fA-F]{6}$/.test(data.color_hex)) {
       colorPicker.value = "#" + data.color_hex;
     }
+    // A fresh analysis invalidates any previous NFC payload.
+    nfcPanel.classList.add("hidden");
+    lastOpenspool = null;
     reviewForm.classList.remove("hidden");
   }
 
@@ -215,7 +243,8 @@
     const fd = new FormData(reviewForm);
     const numeric = new Set([
       "diameter_mm", "density_g_cm3", "net_weight_g", "spool_weight_g",
-      "extruder_temp_c", "bed_temp_c", "price",
+      "extruder_temp_min_c", "extruder_temp_max_c",
+      "bed_temp_min_c", "bed_temp_max_c", "price",
     ]);
     const out = {};
     for (const [k, raw] of fd.entries()) {
@@ -245,15 +274,83 @@
           `<a href="${data.spool_url}" target="_blank" rel="noopener">Open in Spoolman →</a>`
       );
       reviewForm.classList.add("hidden");
-      preview.style.display = "none";
-      analyzeBtn.disabled = true;
-      selectedFile = null;
-      fileInput.value = "";
+      offerNfc(data.openspool);
     } catch (err) {
       showMessage("error", err.message);
     } finally {
       createBtn.disabled = false;
       createBtn.textContent = "Add to Spoolman";
+    }
+  });
+
+  // --- NFC (OpenSpool) write -------------------------------------------------
+
+  function offerNfc(openspool) {
+    lastOpenspool = openspool || null;
+    if (!lastOpenspool) return;
+    nfcAttempt = 0;
+    nfcPayload.textContent = JSON.stringify(lastOpenspool, null, 2);
+    nfcPanel.classList.remove("hidden");
+    if ("NDEFReader" in window) {
+      writeNfcBtn.classList.remove("hidden");
+      writeNfcBtn.disabled = false;
+      writeNfcBtn.textContent = "Write to NFC tag";
+      nfcStatus.textContent = "";
+    } else {
+      writeNfcBtn.classList.add("hidden");
+      nfcStatus.innerHTML =
+        "This browser can't write NFC tags. Use <strong>Chrome on Android over HTTPS</strong> " +
+        "(your Tailscale HTTPS URL works). The payload above is ready to write.";
+    }
+    nfcPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // Writes the payload, aborting if no tag is presented within the timeout.
+  // Each call must run inside a user gesture (button click) to satisfy Web NFC.
+  async function writeTag(openspool) {
+    if (!("NDEFReader" in window)) {
+      throw new Error("Web NFC is not supported in this browser.");
+    }
+    const ndef = new NDEFReader();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      await ndef.write(
+        {
+          records: [
+            {
+              recordType: "mime",
+              mediaType: "application/json",
+              data: new TextEncoder().encode(JSON.stringify(openspool)),
+            },
+          ],
+        },
+        { signal: controller.signal, overwrite: true }
+      );
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error("No tag detected — hold a tag to the phone and retry.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  writeNfcBtn.addEventListener("click", async () => {
+    if (!lastOpenspool) return;
+    nfcAttempt += 1;
+    writeNfcBtn.disabled = true;
+    nfcStatus.textContent = `Hold a tag to the phone… (attempt ${nfcAttempt})`;
+    try {
+      await writeTag(lastOpenspool);
+      nfcStatus.textContent = "✅ Tag written successfully.";
+      writeNfcBtn.textContent = "Write another tag";
+    } catch (err) {
+      nfcStatus.textContent = `❌ ${err.message || err}`;
+      writeNfcBtn.textContent = "Retry";
+    } finally {
+      writeNfcBtn.disabled = false;
     }
   });
 </script>

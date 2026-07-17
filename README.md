@@ -98,6 +98,41 @@ fetches it instead of building locally.
 > secure; to use it from another device, serve over HTTPS (e.g. behind a reverse
 > proxy) or use a tunneling tool.
 
+## NFC tags (OpenSpool)
+
+After a spool is created, the app offers to write an **NFC tag** in
+[OpenSpool](https://github.com/spuder/OpenSpool) format (the same shape
+SpoolPainter / OpenSpoolMan write), so a printer or reader can identify the
+filament. The tag is an NDEF `application/json` record:
+
+```json
+{
+  "protocol": "openspool",
+  "version": "1.0",
+  "type": "PLA+",
+  "color_hex": "F5F5F5",
+  "brand": "eSUN",
+  "min_temp": "205",
+  "max_temp": "225",
+  "spool_id": 42,
+  "variant": "HS",
+  "bed_min_temp": "50",
+  "bed_max_temp": "60"
+}
+```
+
+- `spool_id` links the tag back to the Spoolman spool (SpoolPainter/OpenSpoolMan
+  convention). `variant` and the `bed_*` fields are additive — OpenSpool readers
+  ignore keys they don't recognise.
+- Writing uses the browser **Web NFC API**, which works only on **Chrome/Edge on
+  Android** and only in a **secure context (HTTPS)**. Serve the app over your
+  Tailscale HTTPS URL (or another cert) and open it in Android Chrome.
+- iOS browsers and desktop browsers cannot write NFC tags — the app shows the
+  payload but hides the write button there.
+- Use a blank **NTAG213/215/216** tag. Each button press is one write attempt;
+  if it fails (tag not detected, moved too soon), just tap **Retry** and hold the
+  tag steady against the back of the phone.
+
 ## Notes & limits
 
 - **Density / diameter** are required by Spoolman. If the package doesn't print

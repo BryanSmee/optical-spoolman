@@ -7,9 +7,10 @@ from .config import settings
 from .models import ExtractedFilament
 
 _FIELDS = (
-    "brand, material, color_name, color_hex, diameter_mm, net_weight_g, "
-    "spool_weight_g, density_g_cm3, extruder_temp_c, bed_temp_c, "
-    "article_number, lot_nr, notes"
+    "brand, material, variant, color_name, color_hex, diameter_mm, "
+    "net_weight_g, spool_weight_g, density_g_cm3, extruder_temp_min_c, "
+    "extruder_temp_max_c, bed_temp_min_c, bed_temp_max_c, article_number, "
+    "lot_nr, notes"
 )
 
 SYSTEM_PROMPT = f"""\
@@ -23,13 +24,19 @@ Rules:
 - Use null for any value you cannot read or confidently infer. Do not guess.
 - `material` is the short code (PLA, PLA+, PETG, ABS, ASA, TPU, PC, Nylon/PA,
   PVA, HIPS, ...), not a marketing name.
+- `variant` is the product line / sub-type if the package shows one (e.g. 'HS',
+  'High Speed', 'Premium', 'Matte', 'Silk'); null otherwise.
 - `color_hex` is your best estimate of the actual filament color as 6 hex digits
   WITHOUT a leading '#', informed by the printed color name and the visible
   color of the spool/filament.
 - `diameter_mm` is almost always 1.75 or 2.85.
 - `net_weight_g` is the filament weight in grams (e.g. 1000 for "1 kg"), not the
   gross weight.
-- Temperatures are in Celsius; if a range is printed, use the highest value. If only a single temperature is printed, use that.
+- Temperatures are in Celsius. Read the printed nozzle/extruder range into
+  extruder_temp_min_c / extruder_temp_max_c and the bed range into
+  bed_temp_min_c / bed_temp_max_c. If only a single temperature is printed for
+  either, use it for both min and max.
+- `lot_nr` is the lot / batch number if printed on the package; null otherwise.
 - All numeric fields must be plain numbers with no units.
 """
 
